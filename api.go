@@ -18,23 +18,27 @@ type ApiError struct {
 func makeHttpHandlerFunc(f apiFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if err := f(writer, request); err != nil {
-			WriteJSON(writer, http.StatusBadRequest, ApiError{Error: err.Error()})
+			err := WriteJSON(writer, http.StatusBadRequest, ApiError{Error: err.Error()})
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
 
 func WriteJSON(w http.ResponseWriter, status int, data any) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(data)
 }
 
 type APIServer struct {
 	listenAddr string
+	store      Storage
 }
 
-func NewAPIServer(listenAddr string) *APIServer {
-	return &APIServer{listenAddr: listenAddr}
+func NewAPIServer(listenAddr string, store Storage) *APIServer {
+	return &APIServer{listenAddr: listenAddr, store: store}
 }
 
 func (s *APIServer) Run() {
@@ -44,7 +48,10 @@ func (s *APIServer) Run() {
 
 	log.Println("BBank is running on port: ", s.listenAddr)
 
-	http.ListenAndServe(s.listenAddr, router)
+	err := http.ListenAndServe(s.listenAddr, router)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
